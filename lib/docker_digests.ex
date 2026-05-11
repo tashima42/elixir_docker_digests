@@ -5,11 +5,12 @@ defmodule DockerDigests do
   This tool connects to a docker registry v2 API and finds the digest for each image without
   pulling the whole image, but using the digest header returned when fetching the manifest.
   """
+  require Logger
 
   def main(argv) do
     optimus =
       Optimus.new!(
-        name: "docker-digests",
+        name: "elixir_docker_digests",
         description: "Docker image digests fetcher",
         version: "0.0.1",
         author: "opensource@tashimalab.uk",
@@ -19,8 +20,23 @@ defmodule DockerDigests do
         flags: [
           verbosity: [
             short: "-v",
+            long: "--verbose",
             help: "Verbosity level",
-            multiple: true,
+            multiple: false,
+            global: true
+          ],
+          skip_tls_verify: [
+            short: "-t",
+            long: "--skip-tls-verify",
+            help: "Skip TLS verification on HTTP requests",
+            multiple: false,
+            global: true
+          ],
+          insecure: [
+            short: "-k",
+            long: "--insecure",
+            help: "Don't use https for requests",
+            multiple: false,
             global: true
           ]
         ],
@@ -29,19 +45,47 @@ defmodule DockerDigests do
             value_name: "IMAGE",
             short: "-i",
             long: "--image",
-            help: "image to fetch the digest from (accepts multiple)",
+            help: "Image to fetch the digest from (accepts multiple)",
             multiple: true,
             required: true
+          ],
+          auth: [
+            value_name: "AUTH",
+            short: "-a",
+            long: "--auth",
+            help: "Auth token",
+            multiple: false,
+            required: false
           ]
         ]
       )
 
     args = Optimus.parse!(optimus, argv)
 
-    Enum.each(args.options.images, fn img ->
-      {:ok, image} = DockerDigests.Registry.image_info(img)
-      {:ok, digest} = DockerDigests.Registry.image_digest(image)
-      IO.puts(digest)
+    configure_logger(args.flags.verbosity)
+
+    images = args.options.images
+
+    Logger.debug("fetching images: " <> Enum.join(images, ","))
+
+    Enum.each(images, fn img ->
+      Logger.debug("trying to fetch digest for image: " <> img)
+
+      case DockerDigests.Registry.image_digest(
+             img,
+             args.flags.skip_tls_verify,
+             args.flags.insecure,
+             args.options.auth
+           ) do
+        {:ok, digest} -> IO.puts(digest)
+        {:error, reason} -> raise(reason)
+      end
     end)
+  end
+
+  def configure_logger(verbose) do
+    if verbose do
+      Logger.configure(level: :debug)
+    end
   end
 end
