@@ -55,13 +55,25 @@ defmodule DockerDigests.Registry do
 
     protocol = if insecure, do: "http://", else: "https://"
 
+    accept_headers = [
+      {"accept", "application/vnd.oci.image.index.v1+json"},
+      {"accept", "application/vnd.oci.image.manifest.v1+json"},
+      {"accept", "application/vnd.docker.distribution.manifest.v2+json"},
+      {"accept", "application/vnd.docker.distribution.manifest.v1+prettyjws"},
+      {"accept", "application/vnd.docker.distribution.manifest.v1+json"},
+      {"accept", "application/vnd.docker.distribution.manifest.list.v2+json"},
+      {"accept", "application/vnd.oci.image.index.v1+json"},
+      {"docker-distribution-api-version", "registry/2.0"}
+    ]
+
+    manifest_req = Req.Request.put_headers(req, accept_headers)
+
     case Req.get(
-           req,
+           manifest_req,
            url:
              protocol <>
                img.registry <>
                "/v2/" <> img.namespace <> "/" <> img.name <> "/manifests/" <> img.tag
-           # TODO: add accept headers
          ) do
       {:ok, %Req.Response{status: 401, headers: headers}} ->
         Logger.debug(
@@ -144,6 +156,13 @@ defmodule DockerDigests.Registry do
            |> String.split("/", trim: true)
            |> extract_registry_namespace_name_tag(),
          {:ok, {image_name, tag}} <- extract_name_tag(String.split(name_tag, ":")) do
+      registry =
+        case registry do
+          nil -> "registry-1.docker.io"
+          "docker.io" -> "registry-1.docker.io"
+          _ -> registry
+        end
+
       {:ok, %Image{registry: registry, namespace: namespace, name: image_name, tag: tag}}
     end
   end
