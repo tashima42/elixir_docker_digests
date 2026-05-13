@@ -82,20 +82,6 @@ defmodule DockerDigests do
         {:error, {img, reason}} -> IO.puts("Failed to get image digest: #{img}: #{reason}")
       end
     end)
-
-    # Enum.each(images, fn img ->
-    #   Logger.debug("trying to fetch digest for image: " <> img)
-    #
-    #   case DockerDigests.Registry.image_digest(
-    #          img,
-    #          args.flags.skip_tls_verify,
-    #          args.flags.insecure,
-    #          args.options.auth
-    #        ) do
-    #     {:ok, digest} -> IO.puts(img <> "@" <> digest)
-    #     {:error, reason} -> raise(reason)
-    #   end
-    # end)
   end
 
   def configure_logger(verbose) do
