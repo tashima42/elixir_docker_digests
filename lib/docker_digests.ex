@@ -68,24 +68,40 @@ defmodule DockerDigests do
 
     Logger.debug("fetching images: " <> Enum.join(images, ","))
 
-    Enum.each(images, fn img ->
-      Logger.debug("trying to fetch digest for image: " <> img)
+    digests_results =
+      DockerDigests.Registry.images_digest(
+        images,
+        args.flags.skip_tls_verify,
+        args.flags.insecure,
+        args.options.auth
+      )
 
-      case DockerDigests.Registry.image_digest(
-             img,
-             args.flags.skip_tls_verify,
-             args.flags.insecure,
-             args.options.auth
-           ) do
-        {:ok, digest} -> IO.puts(digest)
-        {:error, reason} -> raise(reason)
+    Enum.each(digests_results, fn result ->
+      case result do
+        {:ok, {img, digest}} -> IO.puts("#{img}@#{digest}")
+        {:error, {img, reason}} -> IO.puts("Failed to get image digest: #{img}: #{reason}")
       end
     end)
+
+    # Enum.each(images, fn img ->
+    #   Logger.debug("trying to fetch digest for image: " <> img)
+    #
+    #   case DockerDigests.Registry.image_digest(
+    #          img,
+    #          args.flags.skip_tls_verify,
+    #          args.flags.insecure,
+    #          args.options.auth
+    #        ) do
+    #     {:ok, digest} -> IO.puts(img <> "@" <> digest)
+    #     {:error, reason} -> raise(reason)
+    #   end
+    # end)
   end
 
   def configure_logger(verbose) do
-    if verbose do
-      Logger.configure(level: :debug)
+    case verbose do
+      true -> Logger.configure(level: :debug)
+      _ -> Logger.configure(level: :info)
     end
   end
 end

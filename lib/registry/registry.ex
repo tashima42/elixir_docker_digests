@@ -9,6 +9,31 @@ defmodule DockerDigests.Registry do
     defstruct [:registry, :namespace, :name, :tag]
   end
 
+  def images_digest(imgs, skip_tls_verify, insecure, auth) do
+    caller = self()
+
+    async_image_digest = fn img ->
+      spawn(fn ->
+        digest_result = image_digest(img, skip_tls_verify, insecure, auth)
+
+        case digest_result do
+          {:ok, digest} -> send(caller, {:digest_result, {:ok, {img, digest}}})
+          {:error, reason} -> send(caller, {:digest_result, {:error, {img, reason}}})
+        end
+      end)
+    end
+
+    collect_digests = fn ->
+      receive do
+        {:digest_result, result} -> result
+      end
+    end
+
+    Enum.each(imgs, &async_image_digest.(&1))
+    digests_results = Enum.map(imgs, fn _ -> collect_digests.() end)
+    digests_results
+  end
+
   @doc """
   `fetch_manifest` takes an Image struct and returns the image manifest.
   The image digest is pulled exclusively from a docker registry v2 API.
